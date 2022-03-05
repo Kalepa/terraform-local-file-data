@@ -47,7 +47,7 @@ locals {
   }
 }
 
-data "external" "run" {
+data "external" "create_file" {
   program = local.is_windows ? ["powershell.exe", "${abspath(path.module)}/run.ps1"] : ["${abspath(path.module)}/run.sh"]
   query   = local.query
   // Force the data source to wait for the assertion to complete AND, if desired, for apply
