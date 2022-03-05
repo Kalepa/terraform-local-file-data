@@ -4,6 +4,8 @@ This module functions similarly to the [local_file](https://registry.terraform.i
 
 Specifically, it will *always* create or overwrite the specified file, regardless of whether the content has changed. It does not track the state of the file.
 
+This module has been tested on Linux and Windows, but not MacOS. In theory, it should function on any Unix-based OS that supports `bash` and `base64` commands, or any Windows-based OS that supports PowerShell.
+
 ## Usage
 
 ```
