@@ -8,66 +8,63 @@ IFS="|" read -a PARAMS <<< $(cat | sed -e 's/__76a7143569c7498988ed9f9c5748352c_
 
 _uuid=$(echo "${PARAMS[1]}" | base64 --decode)
 _idx="${PARAMS[2]}"
-_final=$(echo "${PARAMS[3]}" | base64 --decode)
-_tmp_dir=$(echo "${PARAMS[4]}" | base64 --decode)
-_content=$(echo "${PARAMS[5]}" | base64 --decode)
-_filename=$(echo "${PARAMS[6]}" | base64 --decode)
-_is_base64=$(echo "${PARAMS[7]}" | base64 --decode)
-_file_permissions=$(echo "${PARAMS[8]}" | base64 --decode)
-_directory_permissions=$(echo "${PARAMS[9]}" | base64 --decode)
-_directory=$(echo "${PARAMS[10]}" | base64 --decode)
-_append=$(echo "${PARAMS[11]}" | base64 --decode)
-
-_seq_file="$_tmp_dir/$_uuid.seq"
+_num_chunks="${PARAMS[3]}"
+_content=$(echo "${PARAMS[4]}" | base64 --decode)
+_filename=$(echo "${PARAMS[5]}" | base64 --decode)
+_is_base64=$(echo "${PARAMS[6]}" | base64 --decode)
+_file_permissions=$(echo "${PARAMS[7]}" | base64 --decode)
+_directory_permissions=$(echo "${PARAMS[8]}" | base64 --decode)
+_directory=$(echo "${PARAMS[9]}" | base64 --decode)
+_append=$(echo "${PARAMS[10]}" | base64 --decode)
 
 # Convert from base64 if it is base64
 if [ "$_is_base64" = "true" ]; then
     _content=$(echo "$_content" | base64 --decode)
 fi
 
-if [ $_idx -eq 0 ]; then
-    # If it's the first in the sequence
-    if [ "$_final" != "true" ]; then
-        # And it's not also the final one (i.e. there's more than one chunk)
-        # Then create the sequence file
-        touch "$_seq_file"
-    fi
-
-    # Create the parent directories if necessary
-    mkdir -p -m "$_directory_permissions" "$_directory"
-else
-    # If it's not the first chunk
-    
-    # Wait for the sequence file to be created
-    while [ ! -f "$_seq_file" ]; do sleep 0.05; done
-    
-    # Wait for the previous file to finish
-    while [ "$(tail -1 "$_seq_file")" != "$(( $_idx - 1 ))" ]; do sleep 0.05; done
-fi
-
-# Store the content in the file
-if [ "$_append" = "true" ]; then
-    echo -n "$_content" >> "$_filename"
-else
-    echo -n "$_content" > "$_filename"
-fi
-
-# If it's the first in the sequence
-if [ $_idx -eq 0 ]; then
-    # Set permissions on the file
-    chmod "$_file_permissions" "$_filename"
-fi
-
-if [ "$_final" = "true" ]; then
-    # If this is the final chunk
-
-    if [ $_idx -gt 0 ]; then
-        # And there was more than one chunk
-        # delete the sequence file
-        rm "$_seq_file"
+if [ $_num_chunks -eq 1 ]; then
+    # There's only one chunk, so just write directly to the destination file
+    # Store the content in the file
+    if [ "$_append" = "true" ]; then
+        echo -n "$_content" >> "$_filename"
+    else
+        echo -n "$_content" > "$_filename"
     fi
 else
-    echo "$_idx" >> $_seq_file
+    # There are multiple chunks, so write to a temp file
+    echo -n "$_content" > "$_uuid.$_idx.chunk"
+
+    # If it's the final chunk
+    if [ $_idx -eq $(( $_num_chunks - 1 )) ]; then
+        # Create the parent directories if necessary
+        mkdir -p -m "$_directory_permissions" "$_directory"
+
+        # Wait for each other chunk to be complete
+        _all_chunk_files=()
+        for (( i=0; i<$_num_chunks; i++)); do
+            # Determine what the filename of the chunk will be
+            _chunk_file="$_uuid.$i.chunk"
+
+            # Wait for the file to be created
+            while [ ! -f "$_chunk_file" ]; do sleep 0.05; done
+            
+            # Add the filename to the array of filenames to cat
+            _all_chunk_files+=("$_chunk_file")
+        done
+
+        # Merge all files into the destination file
+        if [ "$_append" = "true" ]; then
+            cat "${_all_chunk_files[@]}" >> "$_filename"
+        else
+            cat "${_all_chunk_files[@]}" > "$_filename"
+        fi
+
+        # Set permissions on the file
+        chmod "$_file_permissions" "$_filename"
+
+        # Delete all chunk files
+        rm ${_all_chunk_files[@]}
+    fi  
 fi
 
 # We must return valid JSON in order for Terraform to not lose its mind

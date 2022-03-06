@@ -24,9 +24,6 @@ locals {
   // We use the uuid function to force a wait for apply, since Terraform doesn't generate the UUID until the apply step
   wait_for_apply = var.force_wait_for_apply ? uuid() : null
 
-  // The directory where temporary files should be stored
-  temporary_dir = abspath("${path.module}/tmpfiles")
-
   // A magic string that we use as a separator. It contains a UUID, so in theory, should
   // be a globally unique ID that will never appear in input content
   unix_query_separator = "__76a7143569c7498988ed9f9c5748352c_TF_MAGIC_SEGMENT_SEPARATOR"
@@ -41,10 +38,18 @@ locals {
   num_chunks = var.max_characters == null ? 1 : ceil(var.max_characters / var.override_chunk_size)
 
   // Split it into chunks
-  chunks = local.num_chunks == 1 ? { 0 = local.content } : {
+  chunks = local.num_chunks == 1 ? { 0 = base64encode(local.content) } : {
     for i in range(0, local.num_chunks) :
-    i => substr(local.content, i * var.override_chunk_size, var.override_chunk_size)
+    i => base64encode(substr(local.content, i * var.override_chunk_size, var.override_chunk_size))
   }
+
+  uuid_base64                 = base64encode(module.uuid.uuid)
+  file_abspath_base64         = base64encode(var.file_abspath)
+  is_base64_base64            = base64encode(local.is_base64 ? "true" : "false")
+  file_permission_base64      = base64encode(var.file_permission)
+  directory_permission_base64 = base64encode(var.directory_permission)
+  dirname_base64              = base64encode(dirname(var.file_abspath))
+  append_base64               = base64encode(var.append ? "true" : "false")
 }
 
 data "external" "create_file" {
@@ -52,31 +57,29 @@ data "external" "create_file" {
   for_each = local.chunks
   query = sensitive(local.is_windows ? {
     // If it's Windows, just use the input value since PowerShell can natively handle JSON decoding
-    uuid      = base64encode(module.uuid.uuid)
-    idx       = tonumber(each.key)
-    final     = base64encode(tonumber(each.key) == local.num_chunks - 1 ? "true" : "false")
-    temp_dir  = base64encode(local.temporary_dir)
-    content   = base64encode(each.value)
-    filename  = base64encode(var.file_abspath)
-    is_base64 = base64encode(local.is_base64 ? "true" : "false")
-    directory = base64encode(dirname(var.file_abspath))
-    append    = base64encode(var.append || tonumber(each.key) > 0 ? "true" : "false")
+    uuid       = local.uuid_base64
+    idx        = tonumber(each.key)
+    num_chunks = local.num_chunks
+    content    = each.value
+    filename   = local.file_abspath_base64
+    is_base64  = local.is_base64_base64
+    directory  = local.dirname_base64
+    append     = local.append_base64
     } : {
     // If it's Unix, we have to convert all characters that JSON escapes into special strings that we can easily convert back WITHOUT needing any other installed tools such as jq
     "" = join("", [local.unix_query_separator, join(local.unix_query_separator, [
-      base64encode(module.uuid.uuid),
+      local.uuid_base64,
       tonumber(each.key),
-      base64encode(tonumber(each.key) == local.num_chunks - 1 ? "true" : "false"),
-      base64encode(local.temporary_dir),
-      base64encode(each.value),
-      base64encode(var.file_abspath),
-      base64encode(local.is_base64 ? "true" : "false"),
-      base64encode(var.file_permission),
-      base64encode(var.directory_permission),
-      base64encode(dirname(var.file_abspath)),
-      base64encode(var.append || tonumber(each.key) > 0 ? "true" : "false")
+      local.num_chunks,
+      each.value,
+      local.file_abspath_base64,
+      local.is_base64_base64,
+      local.file_permission_base64,
+      local.directory_permission_base64,
+      local.dirname_base64,
+      local.append_base64,
     ]), local.unix_query_separator])
   })
   // Force the data source to wait for the assertion to complete AND, if desired, for apply
-  working_dir = module.assert_valid_input.checked && local.wait_for_apply == null ? path.module : path.module
+  working_dir = module.assert_valid_input.checked && local.wait_for_apply == null ? "${path.module}/tmpfiles" : "${path.module}/tmpfiles"
 }

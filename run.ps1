@@ -10,68 +10,63 @@ $json = ConvertFrom-Json $jsonpayload
 # Decode the content and filename
 $_uuid = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.uuid))
 $_idx = $json.idx
-$_final = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.final))
-$_tmp_dir = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.temp_dir))
+$_num_chunks = $json.num_chunks
 $_content = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.content))
 $_filename = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.filename))
 $_is_base64 = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.is_base64))
 $_directory = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.directory))
 $_append = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.append))
 
-$_seq_file = "$_tmp_dir/$_uuid.seq"
-
 # Convert from base64 if it is base64
 if ( "$_is_base64" -eq "true" ) {
     $_content = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("$_content"))
 }
 
-if ( $_idx -eq 0 ) {
-    # If it's the first in the sequence
-    if ("$_final" -ne "true" ) {
-        # And it's not also the final one (i.e. there's more than one chunk)
-        # Then create the sequence file
-        New-Item -Path "$_seq_file" -type File | Out-Null
+if ( $_num_chunks -eq 1 ) {
+    # There's only one chunk, so just write directly to the destination file
+    # Store the content in the file
+    if ( "$_append" -eq "true" ) {
+        Write-Output "$_content" | Out-File -Append -Encoding utf8 -NoNewline -FilePath "$_filename"
     }
-    # Create the parent directories if necessary
-    if ( !(test-path "$_directory") ) {
-        New-Item -ItemType Directory -Force -Path "$_directory" | Out-Null
+    else {
+        Write-Output "$_content" | Out-File -Encoding utf8 -NoNewline -FilePath "$_filename"
     }
 }
 else {
-    # If it's not the first chunk
-    
-    # Wait for the sequence file to be created
-    while (!(Test-Path "$_seq_file")) { Start-Sleep -Milliseconds 50 }
+    # There are multiple chunks, so write to a temp file
+    Write-Output "$_content" | Out-File -Encoding utf8 -NoNewline -FilePath "$_uuid.$_idx.chunk"
 
-    # Wait for the previous file to finish
-    while (1) {
-        $_last_line = Get-Content "$_seq_file" -tail 1
-        if ($_last_line -eq ($_idx - 1).ToString()) {
-            break
+    # If it's the final chunk
+    if ( $_idx -eq ( $_num_chunks - 1 ) ) {
+        # Create the parent directories if necessary
+        if ( !(test-path "$_directory") ) {
+            New-Item -ItemType Directory -Force -Path "$_directory" | Out-Null
         }
-        Start-Sleep -Milliseconds 50
-    }
-}
 
-# Write the content to the file
-if ( "$_append" -eq "true" ) {
-    Write-Output "$_content" | Out-File -Append -Encoding utf8 -NoNewline -FilePath "$_filename"
-}
-else {
-    Write-Output "$_content" | Out-File -Encoding utf8 -NoNewline -FilePath "$_filename"
-}
+        # Wait for each other chunk to be complete
+        $_all_chunk_files = @()
+        for ($i = 0; $i -lt $_num_chunks; $i += 1 ) {
+            # Determine what the filename of the chunk will be
+            $_chunk_file = "$_uuid.$i.chunk"
 
-if ( "$_final" -eq "true"  ) {
-    # If this is the final chunk
-    if ($_idx -gt 0) {
-        # And there was more than one chunk
-        # delete the sequence file
-        Remove-Item "$_seq_file"
+            # Wait for the file to be created
+            while (!(Test-Path "$_chunk_file")) { Start-Sleep -Milliseconds 50 }
+
+            # Add the filename to the array of filenames to cat
+            $_all_chunk_files += "$_chunk_file"
+        }
+        
+        # Merge all files into the destination file
+        if ( "$_append" -eq "true" ) {
+            Get-Content -Encoding utf8 -Raw $_all_chunk_files | Out-File -Append -Encoding utf8 -NoNewline -FilePath "$_filename"
+        }
+        else {
+            Get-Content -Encoding utf8 -Raw $_all_chunk_files | Out-File -Encoding utf8 -NoNewline -FilePath "$_filename"
+        }
+
+        # Delete all chunk files
+        Remove-Item $_all_chunk_files
     }
-}
-else {
-    # Otherwise, write the completed sequence number to the file
-    Write-Output "$_idx" | Out-File -Append -Encoding utf8 -FilePath "$_seq_file"
 }
 
 @{} | ConvertTo-Json
