@@ -1,5 +1,5 @@
-variable "file_abspath" {
-  description = "The absolute path of the file to create."
+variable "filename" {
+  description = "The path of the file to create."
   type        = string
 }
 

@@ -1,7 +1,3 @@
-terraform {
-  required_version = ">= 0.13.0"
-}
-
 module "assert_valid_input" {
   source  = "Invicton-Labs/assertion/null"
   version = "~>0.2.1"
@@ -44,11 +40,11 @@ locals {
   }
 
   uuid_base64                 = base64encode(module.uuid.uuid)
-  file_abspath_base64         = base64encode(var.file_abspath)
+  filename_base64             = base64encode(abspath(var.filename))
   is_base64_base64            = base64encode(local.is_base64 ? "true" : "false")
   file_permission_base64      = base64encode(var.file_permission)
   directory_permission_base64 = base64encode(var.directory_permission)
-  dirname_base64              = base64encode(dirname(var.file_abspath))
+  dirname_base64              = base64encode(dirname(var.filename))
   append_base64               = base64encode(var.append ? "true" : "false")
 }
 
@@ -61,7 +57,7 @@ data "external" "create_file" {
     idx        = tonumber(each.key)
     num_chunks = local.num_chunks
     content    = each.value
-    filename   = local.file_abspath_base64
+    filename   = local.filename_base64
     is_base64  = local.is_base64_base64
     directory  = local.dirname_base64
     append     = local.append_base64
@@ -72,7 +68,7 @@ data "external" "create_file" {
       tonumber(each.key),
       local.num_chunks,
       each.value,
-      local.file_abspath_base64,
+      local.filename_base64,
       local.is_base64_base64,
       local.file_permission_base64,
       local.directory_permission_base64,
