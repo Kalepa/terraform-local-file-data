@@ -23,7 +23,7 @@ module "assert_chunked" {
 
 // Create a UUID for this run of this module (changes on every plan step)
 module "uuid" {
-  source  = "Invicton-Labs/uuid/null"
+  source  = "Invicton-Labs/uuid/random"
   version = "~>0.1.0"
 }
 
