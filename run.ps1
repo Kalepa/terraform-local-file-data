@@ -6,13 +6,25 @@ set-strictmode -version 3.0
 
 $jsonpayload = [Console]::In.ReadLine()
 $json = ConvertFrom-Json $jsonpayload
+$_filename = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.filename))
+$_idx = $json.idx
+
+# If the "create" variable is false, don't actually create the file, just do special actions here
+if ( [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.create)) -ne "true" ) {
+    # If we're not creating the file, but still need to update the timestamp on it, do that without writing content
+    # Only if this is the first chunk though
+    if ( ( $_idx -eq 0 ) -and ( [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.touch)) -eq "true" ) ) {
+        (Get-Item "$_filename").LastWriteTime = (Get-Date)
+    }
+    # Exit out without doing anything else
+    @{} | ConvertTo-Json
+    exit 0
+}
 
 # Decode the content and filename
 $_uuid = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.uuid))
-$_idx = $json.idx
 $_num_chunks = $json.num_chunks
 $_content = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.content))
-$_filename = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.filename))
 $_is_base64 = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.is_base64))
 $_directory = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.directory))
 $_append = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($json.append))
@@ -26,15 +38,15 @@ if ( $_num_chunks -eq 1 ) {
     # There's only one chunk, so just write directly to the destination file
     # Store the content in the file
     if ( "$_append" -eq "true" ) {
-        Write-Output "$_content" | Out-File -Append -Encoding utf8 -NoNewline -FilePath "$_filename"
+        [System.IO.File]::AppendAllText("$_filename", "$_content")
     }
     else {
-        Write-Output "$_content" | Out-File -Encoding utf8 -NoNewline -FilePath "$_filename"
+        [System.IO.File]::WriteAllText("$_filename", "$_content")
     }
 }
 else {
     # There are multiple chunks, so write to a temp file
-    Write-Output "$_content" | Out-File -Encoding utf8 -NoNewline -FilePath "$_uuid.$_idx.chunk"
+    [System.IO.File]::WriteAllText("$_uuid.$_idx.chunk", "$_content")
 
     # If it's the final chunk
     if ( $_idx -eq ( $_num_chunks - 1 ) ) {
@@ -44,7 +56,6 @@ else {
         }
 
         # Wait for each other chunk to be complete
-        $_all_chunk_files = @()
         for ($i = 0; $i -lt $_num_chunks; $i += 1 ) {
             # Determine what the filename of the chunk will be
             $_chunk_file = "$_uuid.$i.chunk"
@@ -52,20 +63,16 @@ else {
             # Wait for the file to be created
             while (!(Test-Path "$_chunk_file")) { Start-Sleep -Milliseconds 50 }
 
-            # Add the filename to the array of filenames to cat
-            $_all_chunk_files += "$_chunk_file"
+            # Merge all files into the destination file
+            if ($i -eq 0) {
+                [System.IO.File]::WriteAllText("$_filename", $(Get-Content -Encoding utf8 -Raw "$_chunk_file"))
+            }
+            else {
+                [System.IO.File]::AppendAllText("$_filename", $(Get-Content -Encoding utf8 -Raw "$_chunk_file"))
+            }
+            # Delete all chunk files
+            Remove-Item "$_chunk_file"
         }
-        
-        # Merge all files into the destination file
-        if ( "$_append" -eq "true" ) {
-            Get-Content -Encoding utf8 -Raw $_all_chunk_files | Out-File -Append -Encoding utf8 -NoNewline -FilePath "$_filename"
-        }
-        else {
-            Get-Content -Encoding utf8 -Raw $_all_chunk_files | Out-File -Encoding utf8 -NoNewline -FilePath "$_filename"
-        }
-
-        # Delete all chunk files
-        Remove-Item $_all_chunk_files
     }
 }
 

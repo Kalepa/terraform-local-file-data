@@ -6,16 +6,34 @@ set -eu
 # cannot possibly be included in the stdin.
 IFS="|" read -a PARAMS <<< $(cat | sed -e 's/__76a7143569c7498988ed9f9c5748352c_TF_MAGIC_SEGMENT_SEPARATOR/|/g')
 
-_uuid=$(echo "${PARAMS[1]}" | base64 --decode)
-_idx="${PARAMS[2]}"
-_num_chunks="${PARAMS[3]}"
-_content=$(echo "${PARAMS[4]}" | base64 --decode)
-_filename=$(echo "${PARAMS[5]}" | base64 --decode)
-_is_base64=$(echo "${PARAMS[6]}" | base64 --decode)
-_file_permissions=$(echo "${PARAMS[7]}" | base64 --decode)
-_directory_permissions=$(echo "${PARAMS[8]}" | base64 --decode)
-_directory=$(echo "${PARAMS[9]}" | base64 --decode)
-_append=$(echo "${PARAMS[10]}" | base64 --decode)
+_create=$(echo "${PARAMS[1]}" | base64 --decode)
+_touch=$(echo "${PARAMS[2]}" | base64 --decode)
+_uuid=$(echo "${PARAMS[3]}" | base64 --decode)
+_idx="${PARAMS[4]}"
+_num_chunks="${PARAMS[5]}"
+_content=$(echo "${PARAMS[6]}" | base64 --decode)
+_filename=$(echo "${PARAMS[7]}" | base64 --decode)
+_is_base64=$(echo "${PARAMS[8]}" | base64 --decode)
+_file_permissions=$(echo "${PARAMS[9]}" | base64 --decode)
+_directory_permissions=$(echo "${PARAMS[10]}" | base64 --decode)
+_directory=$(echo "${PARAMS[11]}" | base64 --decode)
+_append=$(echo "${PARAMS[12]}" | base64 --decode)
+
+# If the "create" variable is false, don't actually create the file, just do special actions here
+if [ "$_create" != "true" ]; then
+    # If we're not creating the file, but still need to update the timestamp on it, do that without writing content
+    # Only if this is the first chunk though
+    if [ $_idx -eq 0 ]; then
+        if [ "$_touch" = "true" ]; then
+            touch "$_filename"
+        fi
+        # Set permissions on the file
+        chmod "$_file_permissions" "$_filename"
+    fi
+    # Exit out without doing anything else
+    echo -n "{}"
+    exit 0
+fi
 
 # Convert from base64 if it is base64
 if [ "$_is_base64" = "true" ]; then

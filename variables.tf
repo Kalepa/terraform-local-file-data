@@ -49,12 +49,27 @@ EOF
   default     = null
 }
 
+variable "force_update_last_modified" {
+  description = "By default, this module will not do anything if there is already a local file with contents that match the input variable contents. If this variable is set to `true`, the existing file's `last modified` timestamp will be updated to the current time, even if the file itself doesn't need to be modified."
+  type = bool
+  default = false
+}
+
+locals {
+  // This should always match the default value in the variable below
+  default_chunk_size = 749968
+}
 variable "override_chunk_size" {
   description = "Set this variable to override the default per-file chunk size. This is generally only used for testing and should not normally be used. If you do set it, ensure that you set it to a value that is a multiple of 76 so that it doesn't break base64 encoding where it splits."
   type        = number
   // We're limited to 4MB, which is about 3,000,000 bytes before the 36% base64 overhead.
-  // With Terraform's UTF-8 encoding, there could be upt to 4 bytes per character, so 3,000,000/4 = 749,968 characters max.
+  // With Terraform's UTF-8 encoding, there could be up to 4 bytes per character, so 3,000,000/4 = 749,968 characters max.
   // To be able to handle base64 encoding and not break it when splitting, we use the nearest multiple of 76, since the
   // base64 specs use line lengths of 76 characters
   default = 749968
+
+  validation {
+    condition     = var.override_chunk_size % 76 == 0
+    error_message = "The `override_chunk_size` value must be a multiple of 76."
+  }
 }
