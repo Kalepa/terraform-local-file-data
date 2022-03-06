@@ -41,7 +41,8 @@ locals {
   content = module.assert_valid_input.checked ? (local.is_base64 ? var.content_base64 : var.content) : null
 
   // Whether the output file already exists
-  file_exists = fileexists(var.filename)
+  // Don't bother with this if we're appending, since we'll always need to modify in that case
+  file_exists = fileexists(var.filename) && !var.append
 
   // Try decoding the content if it's base64
   content_decoded = local.file_exists && local.is_base64 ? try(base64decode(local.content), null) : null
