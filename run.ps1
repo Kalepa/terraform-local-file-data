@@ -36,6 +36,8 @@ if ( "$_is_base64" -eq "true" ) {
 
 if ( $_num_chunks -eq 1 ) {
     # There's only one chunk, so just write directly to the destination file
+    # First, create the directory if necessary
+    New-Item -ItemType Directory -Force -Path "$_directory" | Out-Null
     # Store the content in the file
     if ( "$_append" -eq "true" ) {
         [System.IO.File]::AppendAllText("$_filename", "$_content")
