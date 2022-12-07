@@ -1,8 +1,8 @@
-![Build](https://github.com/Invicton-Labs/terraform-local-file-data/actions/workflows/CICD.yml/badge.svg)
+![Build](https://github.com/Kalepa/terraform-local-file-data/actions/workflows/CICD.yml/badge.svg)
 
 # Terraform Local File (Data)
 
-On the Terraform Registry: [Invicton-Labs/file-data/local](https://registry.terraform.io/modules/Invicton-Labs/file-data/local/latest)
+On the Terraform Registry: [Kalepa/file-data/local](https://registry.terraform.io/modules/Kalepa/file-data/local/latest)
 
 This module functions similarly to the [local_file](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) resource, but acts as a data source instead of a resource.
 
@@ -22,7 +22,7 @@ This module has been tested on many flavors of Linux, Windows, and MacOS. If a s
 
 ```
 module "local-file-data" {
-  source = "Invicton-Labs/file-data/local"
+  source = "Kalepa/file-data/local"
 
   filename = "${path.module}/testdir/test.txt"
 

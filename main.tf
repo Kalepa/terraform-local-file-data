@@ -1,7 +1,7 @@
 // Check that the correct content inputs are provided
 module "assert_valid_input" {
-  source  = "Invicton-Labs/assertion/null"
-  version = "~>0.2.1"
+  source  = "Kalepa/assertion/null"
+  version = "~> 0.2"
   condition = length([for c in [
     local.var_content,
     local.var_content_base64
@@ -15,24 +15,24 @@ module "assert_valid_input" {
 // Check that the file is within the single-chunk size limits unless the user has made it clear that
 // they want it to be multi-chunk.
 module "assert_chunked" {
-  source        = "Invicton-Labs/assertion/null"
-  version       = "~>0.2.1"
+  source        = "Kalepa/assertion/null"
+  version       = "~> 0.2"
   condition     = length(local.is_base64 ? local.var_content_base64 : local.var_content) <= local.var_chunk_size || local.var_max_characters != null
   error_message = "If the content length is greater than the file chunk size (${local.var_chunk_size} characters), then the `max_characters` variable must be provided and known during the plan step."
 }
 
 // Ensure there aren't too many chunks
 module "assert_num_chunks" {
-  source        = "Invicton-Labs/assertion/null"
-  version       = "~>0.2.1"
+  source        = "Kalepa/assertion/null"
+  version       = "~> 0.2"
   condition     = local.num_chunks <= 1024
   error_message = "The given file would require ${local.num_chunks} chunk operations, which is more than the limit of 1024."
 }
 
 // Generate a UUID at plan-time
 module "uuid" {
-  source  = "Invicton-Labs/uuid/random"
-  version = "~>0.2.0"
+  source  = "Kalepa/uuid/random"
+  version = "~> 0.2"
 }
 
 locals {

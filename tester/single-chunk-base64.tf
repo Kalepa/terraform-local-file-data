@@ -24,15 +24,15 @@ module "single_chunk_base64_no_change" {
 }
 
 module "check_single_chunk_base64" {
-  source        = "Invicton-Labs/assertion/null"
-  version       = "~>0.2.1"
+  source        = "Kalepa/assertion/null"
+  version       = "~> 0.2"
   condition     = local.single_chunk_base64 == local.single_chunk_base64_original_content
   error_message = "single-chunk-base64: expected ${jsonencode(local.single_chunk_base64_original_content)}, got ${jsonencode(local.single_chunk_base64)}"
 }
 
 module "check_single_chunk_base64_no_change" {
-  source  = "Invicton-Labs/assertion/null"
-  version = "~>0.2.1"
+  source  = "Kalepa/assertion/null"
+  version = "~> 0.2"
   depends_on = [
     module.check_single_chunk_base64
   ]

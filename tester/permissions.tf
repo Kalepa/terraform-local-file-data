@@ -12,8 +12,8 @@ locals {
 }
 
 module "check_permissions" {
-  source        = "Invicton-Labs/assertion/null"
-  version       = "~>0.2.1"
+  source        = "Kalepa/assertion/null"
+  version       = "~> 0.2"
   condition     = local.permissions == module.permissions.content
   error_message = "permissions: expected ${jsonencode(module.permissions.content)}\", got ${jsonencode(local.permissions)}"
 }

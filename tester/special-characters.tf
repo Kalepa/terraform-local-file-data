@@ -28,15 +28,15 @@ locals {
 }
 
 module "check_special_characters" {
-  source        = "Invicton-Labs/assertion/null"
-  version       = "~>0.2.1"
+  source        = "Kalepa/assertion/null"
+  version       = "~> 0.2"
   condition     = local.special_characters == module.special_characters.content
   error_message = "multi-chunk: expected ${jsonencode(module.special_characters.content)}, got ${jsonencode(local.special_characters)}"
 }
 
 module "check_special_characters_no_change" {
-  source  = "Invicton-Labs/assertion/null"
-  version = "~>0.2.1"
+  source  = "Kalepa/assertion/null"
+  version = "~> 0.2"
   depends_on = [
     module.check_special_characters
   ]

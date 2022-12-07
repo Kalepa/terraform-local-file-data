@@ -39,15 +39,15 @@ module "multi_chunk_append_no_change" {
 }
 
 module "check_multi_chunk_append" {
-  source        = "Invicton-Labs/assertion/null"
-  version       = "~>0.2.1"
+  source        = "Kalepa/assertion/null"
+  version       = "~> 0.2"
   condition     = local.multi_chunk_append == local.multi_chunk_append_expected_combined
   error_message = "multi-chunk-append: expected ${jsonencode(local.multi_chunk_append_expected_combined)}, got ${jsonencode(local.multi_chunk_append)}"
 }
 
 module "check_multi_chunk_append_no_change" {
-  source  = "Invicton-Labs/assertion/null"
-  version = "~>0.2.1"
+  source  = "Kalepa/assertion/null"
+  version = "~> 0.2"
   depends_on = [
     module.check_multi_chunk_append
   ]
